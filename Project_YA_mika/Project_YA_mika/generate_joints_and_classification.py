@@ -1,4 +1,5 @@
 ﻿import cv2
+import time
 import numpy as np
 import mediapipe as mp
 import tensorflow as tf
@@ -20,14 +21,15 @@ LEFT_HAND_LANDMARKS = 21
 RIGHT_HAND_LANDMARKS = 21
 POSE_LANDMARKS = 33
 FEATURE_SIZE = (LEFT_HAND_LANDMARKS + RIGHT_HAND_LANDMARKS + POSE_LANDMARKS) * 2  # X, Y for each landmark
-MAX_FRAMES = 30  # Number of frames used for classification
+MAX_FRAMES = 15  # Number of frames used for classification
 
 # Load label encoder
-LABELS = ["book", "drink", "computer_bk"]  # Same classes as in training
+LABELS = ["book", "drink", "computer_bk", "study", "i", "science"]  # Same classes as in training
 
 def extract_landmarks(video_path, output_csv_path):
     """
     Extracts normalized (x, y) landmarks from a video and saves them to a CSV file.
+    Processes only `MAX_FRAMES` evenly spaced frames.
     """
     output_csv_path = os.path.join(output_csv_path, "landmarks.csv")
     
@@ -38,23 +40,26 @@ def extract_landmarks(video_path, output_csv_path):
         print(f"❌ Error: Could not open video at {video_path}")
         return None
 
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # Get total frame count
+    frame_indices = np.linspace(0, total_frames - 1, num=MAX_FRAMES, dtype=int)  # Select evenly spaced frames
+
     with mp_hands.Hands(static_image_mode=False, max_num_hands=2) as hands, \
             mp_pose.Pose(static_image_mode=False) as pose:
         
         all_frames_data = []
 
-        while cap.isOpened():
+        for frame_idx in frame_indices:
+            #print(f"Processinf frame {frame_idx} ....")
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)  # Jump to the selected frame
             ret, frame = cap.read()
             if not ret:
-                break
-            
+                break  # Stop if we can't read the frame
+
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             hand_results = hands.process(rgb_frame)
             pose_results = pose.process(rgb_frame)
 
             frame_data = [0.0] * FEATURE_SIZE  # Initialize with zeros
-
-            #print(f"Start processing hands ....")
 
             # Process hand landmarks
             if hand_results.multi_hand_landmarks:
@@ -64,7 +69,6 @@ def extract_landmarks(video_path, output_csv_path):
                         frame_data[base_idx + i * 2] = lm.x
                         frame_data[base_idx + i * 2 + 1] = lm.y
 
-            #print(f"Start processing pose ....")
             # Process pose landmarks
             if pose_results.pose_landmarks:
                 base_idx = (LEFT_HAND_LANDMARKS + RIGHT_HAND_LANDMARKS) * 2
@@ -79,20 +83,17 @@ def extract_landmarks(video_path, output_csv_path):
     # Convert to NumPy array
     all_frames_data = np.array(all_frames_data)
     
-    print(f"Convert to numpy array ....")
+    print(f"Convert to numpy array {time.perf_counter()} ....")
 
-    # Ensure MAX_FRAMES length
+    # Ensure that the output is always of length MAX_FRAMES
     if len(all_frames_data) < MAX_FRAMES:
         padding = np.zeros((MAX_FRAMES - len(all_frames_data), FEATURE_SIZE))
         all_frames_data = np.vstack((all_frames_data, padding))
-    else:
-        step = max(1, len(all_frames_data) // MAX_FRAMES)
-        all_frames_data = all_frames_data[::step][:MAX_FRAMES]
 
-    # Save to CSV
-    df = pd.DataFrame(all_frames_data)
-    df.to_csv(output_csv_path, index=False, header=False)
-    print(f"✅ Saved landmarks to: {output_csv_path}")
+    # Save to CSV (Uncomment if needed)
+    # df = pd.DataFrame(all_frames_data)
+    # df.to_csv(output_csv_path, index=False, header=False)
+    print(f"✅ {time.perf_counter()} Saved landmarks to: {output_csv_path}")
 
     return all_frames_data
 
@@ -117,7 +118,7 @@ def classify_video(video_path, outputs_dir):
 
 def generate_joints(input_video_path, output_video_path, outputs_dir):
     """
-    Processes video to generate joint visualization and classifies the sign.
+    Processes video to generate joint visualization using MAX_FRAMES evenly spaced frames.
     """
     print(f"Start generate_joints ....")
 
@@ -126,53 +127,60 @@ def generate_joints(input_video_path, output_video_path, outputs_dir):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
+    # Define video writer
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
-    iFrame = 0
-    print(f"Start generate_joints 2....")    
+
+    # Select MAX_FRAMES evenly spaced indices
+    frame_indices = np.linspace(0, total_frames - 1, num=MAX_FRAMES, dtype=int)
+
+    print(f"Start processing video with {MAX_FRAMES} evenly spaced frames...")
+
     with mp_hands.Hands(static_image_mode=False, max_num_hands=2) as hands, \
             mp_pose.Pose(static_image_mode=False) as pose:
 
-        #print(f"Start generate_joints 3....")        
-        while cap.isOpened():
+        for frame_idx in frame_indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)  # Jump to the selected frame
             ret, frame = cap.read()
             if not ret:
                 break
 
             black_frame = np.zeros((height, width, 3), dtype=np.uint8)  # Black background
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            #print(f"Start generate_joints 4....")
-            iFrame += 1
-            #print(f"Procesing frame {iFrame}")            
+
+            print(f"Processing frame {frame_idx}...")
 
             hand_results = hands.process(rgb_frame)
             pose_results = pose.process(rgb_frame)
 
-            if hand_results.multi_hand_landmarks:
-                for hand_landmarks in hand_results.multi_hand_landmarks:
-                    mp_drawing.draw_landmarks(
-                        black_frame, 
-                        hand_landmarks, 
-                        mp_hands.HAND_CONNECTIONS,
-                        mp_drawing_styles.get_default_hand_landmarks_style(),
-                        mp_drawing_styles.get_default_hand_connections_style()
-                    )
-            if pose_results.pose_landmarks:
-                mp_drawing.draw_landmarks(
-                    black_frame, 
-                    pose_results.pose_landmarks, 
-                    mp_pose.POSE_CONNECTIONS,
-                    mp_drawing_styles.get_default_pose_landmarks_style()
-                )
+            # Draw hand landmarks
+            #if hand_results.multi_hand_landmarks:
+            #    for hand_landmarks in hand_results.multi_hand_landmarks:
+            #        mp_drawing.draw_landmarks(
+            #            black_frame, 
+            #            hand_landmarks, 
+            #            mp_hands.HAND_CONNECTIONS
+            #        )
 
+            # Draw pose landmarks
+            #if pose_results.pose_landmarks:
+            #    mp_drawing.draw_landmarks(
+            #        black_frame, 
+            #        pose_results.pose_landmarks, 
+            #        mp_pose.POSE_CONNECTIONS
+            #    )
+
+            # Write the processed frame to output video
             out.write(black_frame)
 
     cap.release()
     out.release()
-    
-    print(f"Finished processing video ")            
+
+    print(f"✅ Finished processing video with {MAX_FRAMES} frames")            
+
+    # Classify the processed video
     predicted_sign = classify_video(input_video_path, outputs_dir)
     print(f"✅ Predicted sign: {predicted_sign}")
     return predicted_sign

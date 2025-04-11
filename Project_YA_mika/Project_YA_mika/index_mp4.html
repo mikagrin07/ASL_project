@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASL Prediction</title>
+
+    <!-- Video.js CSS -->
+    <link href="https://unpkg.com/video.js/dist/video-js.css" rel="stylesheet">
+
+    <!-- Custom Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@300&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: auto;
+            min-height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-image: url('/static/WebBackground.jpg');
+            background-color: #F2E7DD;
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+            padding-top: 100px; /* Adds space below the top green bar */
+        }
+
+        h1 {
+            color: #b36b6b; /* Dark old pink */
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 80px; /* Space for the top bar */
+        }
+
+        input[type="file"], input[type="submit"] {
+            padding: 10px;
+            margin: 10px;
+            font-size: 1em;
+        }
+
+        .video-container {
+            width: 500px;
+            height: auto;
+            margin-top: 20px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            width: 100%; /* Ensures it stays centered */
+            text-align: center;
+        }
+
+        .video-container video {
+            display: block;
+            margin: 0 auto;
+        }
+
+        #uploadedVideoTitle {
+            display: none;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        p#output, p#prediction {
+            color: #b36b6b; /* Dark old pink */
+            background: none;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        /* Remove default styling that may cause grey squares */
+
+        h1, h2, p, input, form, button, video, div {
+            margin: 0;
+            padding: 0;
+            border: none;
+            outline: none;
+            background: none;
+        }
+
+        button, video::before, video::after {
+            display: none !important; /* Hides any default buttons, icons, or pseudo-elements */
+        }
+
+        /* Top greenish bar */
+        .top-bar {
+            width: 100%;
+            background-color: #A9C191; /* Greenish color */
+
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            font-size: 1.8em;
+            font-weight: bold;
+            font-family: 'Playfair Display', serif; /* Fancy font for title */
+            z-index: 1000; /* Ensures the top bar stays on top of other elements */
+        }
+
+        .top-bar .author {
+            font-size: 0.5em;
+            position: absolute;
+            left: 20px;
+            bottom: 5px;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+        }
+
+
+        /* Styled Upload Button */
+
+        input[type="submit"] {
+            background-color: #f8d8c4; /* Light pink shade */
+
+            color: white;
+            border-radius: 30px; /* More rounded button */
+
+            border: 1px solid #f4c2b4;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+            padding: 15px 30px;
+            font-size: 1.2em;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #F0B2B3; /* Slightly darker pink on hover */
+        }
+
+        /* Pink bar under predicted sign */
+        .bottom-bar {
+            width: 100%;
+            background-color: #f4c2b4; /* Soft pink */
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            font-family: 'Poppins', sans-serif;
+            margin-top: 20px;
+        }
+
+
+        /* Four squares section */
+
+        .four-squares {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            width: 100%;
+            height: 400px;
+            margin-top: 20px;
+        }
+
+        .square video {
+            width: 90%;
+            height: auto;
+            border-radius: 10px;
+            max-width: 300px;
+        }
+
+        .square {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            padding: 10px;
+        }
+
+        .square:nth-child(1) {
+            background-color: #F2E7DD;
+        }
+
+        .square:nth-child(2) {
+            background-color: #A9C191;
+        }
+
+        .square:nth-child(3) {
+            background-color: #f8d8c4;
+        }
+
+        .square:nth-child(4) {
+            background-color: #F2E7DD;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        ASL Prediction
+        <span class="author">Mika Grinberg</span>
+    </div>
+
+    <h1>Upload a Video</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="file" accept="video/mp4">
+        <input type="submit" value="Upload">
+    </form>
+    <p id="output"></p>
+
+    <h2 id="uploadedVideoTitle">Uploaded Video:</h2>
+    <div class="video-container">
+        <video id="uploadedVideo" class="video-js vjs-default-skin" controls preload="auto" width="500" height="auto">
+            <source id="uploadedVideoSource" src="#" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <p id="prediction"></p>
+    <div class="bottom-bar">Looking for examples?</div>
+
+
+    <div class="four-squares">
+        <div class="square">
+            <video controls>
+                <source src="/static/videos/17730_drink.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+        <div class="square">
+            <video controls>
+                <source src="/static/videos/12331_computer.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+        <div class="square">
+            <video controls>
+                <source src="/static/videos/07075_book.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+        <div class="square">
+            <video controls>
+                <source src="/static/videos/49634_science.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    </div>
+
+
+    <!-- Video.js JavaScript -->
+    <script src="https://unpkg.com/video.js/dist/video.js"></script>
+
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            var formData = new FormData();
+            var fileInput = document.getElementById('fileInput');
+            var uploadedVideo = document.getElementById('uploadedVideo');
+            var uploadedVideoSource = document.getElementById('uploadedVideoSource');
+            var outputMessage = document.getElementById('output');
+            var predictionText = document.getElementById('prediction');
+            var uploadedVideoContainer = uploadedVideo.parentElement;
+
+            // Clear previous results
+            outputMessage.innerText = "";
+            predictionText.innerText = "";
+            uploadedVideoContainer.style.display = "none";
+
+            if (fileInput.files.length === 0) {
+                outputMessage.innerText = 'Error: No file selected';
+                return;
+            }
+
+            // Show uploaded video immediately
+            var fileURL = URL.createObjectURL(fileInput.files[0]);
+            uploadedVideoSource.src = fileURL;
+            uploadedVideo.load();
+            uploadedVideoContainer.style.display = "block";
+
+            formData.append('file', fileInput.files[0]);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        outputMessage.innerText = 'Error: ' + data.error;
+                    } else {
+                        outputMessage.innerText = 'Video processed successfully!';
+                        console.log("Predicted Sign:", data.predicted_sign);
+
+                        // Show prediction result
+                        predictionText.innerText = "Predicted Sign: " + data.predicted_sign;
+                    }
+                })
+                .catch(error => {
+                    console.error('Upload failed:', error);
+                    outputMessage.innerText = 'An error occurred while uploading.';
+                });
+        });
+
+    </script>
+</body>
+</html> 

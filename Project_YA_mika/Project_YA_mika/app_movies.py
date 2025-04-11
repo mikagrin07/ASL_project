@@ -1,5 +1,8 @@
 ﻿from flask import Flask, request, jsonify, send_from_directory, send_file, render_template
 import os
+import cProfile
+import pstats
+import io
 from generate_joints_and_classification import generate_joints
 
 app = Flask(__name__, static_url_path='', static_folder='.')
@@ -23,7 +26,30 @@ def allowed_file(filename):
 def root():
     return app.send_static_file('index_mp4.html')
 
+
+def profile_function(func):
+    """Decorator to profile a function using cProfile."""
+    def wrapper(*args, **kwargs):
+        profiler = cProfile.Profile()
+        profiler.enable()  # Start profiling
+        result = func(*args, **kwargs)
+        profiler.disable()  # Stop profiling
+
+        # Capture profiling results
+        s = io.StringIO()
+        ps = pstats.Stats(profiler, stream=s).sort_stats(pstats.SortKey.CUMULATIVE)
+        ps.print_stats(50)  # Show top 10 slowest functions
+        
+        print("\n--- Profiling Results ---")
+        print(s.getvalue())
+        print("--- End of Profiling ---\n")
+
+        return result
+
+    return wrapper
+
 @app.route('/upload', methods=['POST'])
+#@profile_function  # Applying the profiler
 def upload():
     print("✅ Upload request received", flush=True)
 
