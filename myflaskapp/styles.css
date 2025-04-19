@@ -1,0 +1,193 @@
+/* --- General Page Styles --- */
+body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: auto;
+  min-height: 100vh;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-image: url('/static/WebBackground.jpg');
+  background-color: #F2E7DD;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  padding-top: 100px;
+}
+
+h1 {
+  color: #b36b6b;
+}
+
+h1, h2, p, input, form, button, video, div {
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+p#output, p#prediction {
+  color: #b36b6b;
+  background: none;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+/* --- Top Bar --- */
+.top-bar {
+  width: 100%;
+  background-color: #A9C191;
+  color: white;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  font-size: 1.8em;
+  font-weight: bold;
+  font-family: 'Playfair Display', serif;
+  z-index: 1000;
+}
+
+.top-bar .author {
+  font-size: 0.5em;
+  position: absolute;
+  left: 20px;
+  bottom: 5px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* --- Upload Form --- */
+form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #F2E7DD;
+  padding: 20px;
+  border-radius: 10px;
+  margin-top: 80px;
+}
+
+input[type="file"], input[type="submit"] {
+  padding: 10px;
+  margin: 10px;
+  font-size: 1em;
+}
+
+input[type="submit"] {
+  background-color: #f8d8c4;
+  color: white;
+  border-radius: 30px;
+  border: 1px solid #f4c2b4;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+  padding: 15px 30px;
+  font-size: 1.2em;
+}
+
+input[type="submit"]:hover {
+  background-color: #F0B2B3;
+}
+
+/* --- Video Display Area --- */
+.video-container {
+  width: 500px;
+  height: auto;
+  margin-top: 20px;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  text-align: center;
+}
+
+.video-container video {
+  display: block;
+  margin: 0 auto;
+}
+
+#uploadedVideoTitle {
+  display: none;
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+/* --- Four Squares Layout --- */
+.four-squares {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  width: 100%;
+  height: 400px;
+  margin-top: 20px;
+}
+
+.square {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5em;
+  font-weight: bold;
+  padding: 10px;
+}
+
+.square video {
+  width: 90%;
+  height: auto;
+  border-radius: 10px;
+  max-width: 300px;
+}
+
+.square:nth-child(1) {
+  background-color: #F2E7DD;
+}
+
+.square:nth-child(2) {
+  background-color: #A9C191;
+}
+
+.square:nth-child(3) {
+  background-color: #f8d8c4;
+}
+
+.square:nth-child(4) {
+  background-color: #F2E7DD;
+}
+
+.video-title {
+  margin-bottom: 12px;
+  font-weight: bold;
+  text-align: center;
+  font-family: 'Poppins', sans-serif;
+  font-size: 18px;
+  width: 100%;
+}
+
+/* --- Bottom Bar --- */
+.bottom-bar {
+  width: 100%;
+  background-color: #f4c2b4;
+  color: white;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.2em;
+  font-weight: bold;
+  font-family: 'Poppins', sans-serif;
+  margin-top: 20px;
+}
+
+/* --- Remove default styling that may cause grey overlays --- */
+button, video::before, video::after {
+  display: none !important;
+}

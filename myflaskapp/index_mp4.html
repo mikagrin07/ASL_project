@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASL Prediction</title>
+
+  <!-- External CSS -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Video.js CSS -->
+  <link href="https://unpkg.com/video.js/dist/video-js.css" rel="stylesheet">
+
+  <!-- Custom Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@300&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="top-bar">
+    ASL Prediction
+    <span class="author">Mika Grinberg</span>
+  </div>
+
+  <h1 style="font-family: 'Playfair Display', serif; font-size: 2em; color: #b36b6b;">Upload a Video for ASL Interpretation</h1>
+  <p style="font-family: 'Poppins', sans-serif; color: #555; font-size: 1em; margin: 10px auto; max-width: 600px; text-align: center;">
+        Use the form below to upload a short video of a sign in American Sign Language. Our model will analyze the movement and predict the most likely meaning of the sign.
+  </p>
+  
+  <form id="uploadForm" enctype="multipart/form-data">
+    <input type="file" id="fileInput" name="file" accept="video/mp4">
+    <input type="submit" value="Upload">
+  </form>
+
+  <p id="output"></p>
+
+  <h2 id="uploadedVideoTitle">Uploaded Video:</h2>
+  <div class="video-container">
+    <video id="uploadedVideo" class="video-js vjs-default-skin" controls preload="auto" width="500" height="auto">
+      <source id="uploadedVideoSource" src="#" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+  </div>
+
+  <p id="prediction"></p>
+  <div class="bottom-bar">Looking for examples?</div>
+
+  <!-- Four Example Videos -->
+  <div class="four-squares">
+    <div class="square">
+      <p class="video-title">📘 Book</p>
+      <video controls>
+        <source src="/uploads/07075_book_display.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    </div>
+
+    <div class="square">
+      <p class="video-title">💻 Computer</p>
+      <video controls>
+        <source src="/uploads/12331_computer_display.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    </div>
+
+    <div class="square">
+      <p class="video-title">🥤 Drink</p>
+      <video controls>
+        <source src="/uploads/17730_drink_display.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    </div>
+
+    <div class="square">
+      <p class="video-title">🔬 Science</p>
+      <video controls>
+        <source src="/uploads/49634_science.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    </div>
+  </div>
+
+  <!-- Video.js JavaScript -->
+  <script src="https://unpkg.com/video.js/dist/video.js"></script>
+
+  <!-- Upload Logic -->
+  <script>
+    document.getElementById('uploadForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      const formData = new FormData();
+      const fileInput = document.getElementById('fileInput');
+      const uploadedVideo = document.getElementById('uploadedVideo');
+      const uploadedVideoSource = document.getElementById('uploadedVideoSource');
+      const outputMessage = document.getElementById('output');
+      const predictionText = document.getElementById('prediction');
+      const uploadedVideoContainer = uploadedVideo.parentElement;
+
+      outputMessage.innerText = "";
+      predictionText.innerText = "";
+      uploadedVideoContainer.style.display = "none";
+
+      if (fileInput.files.length === 0) {
+        outputMessage.innerText = 'Error: No file selected';
+        return;
+      }
+
+      const fileURL = URL.createObjectURL(fileInput.files[0]);
+      uploadedVideoSource.src = fileURL;
+      uploadedVideo.load();
+      uploadedVideoContainer.style.display = "block";
+
+      formData.append('file', fileInput.files[0]);
+
+      fetch('/upload', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          outputMessage.innerText = 'Error: ' + data.error;
+        } else {
+          outputMessage.innerText = 'Video processed successfully!';
+          predictionText.innerText = "Predicted Sign: " + data.predicted_sign;
+        }
+      })
+      .catch(error => {
+        console.error('Upload failed:', error);
+        outputMessage.innerText = 'An error occurred while uploading.';
+      });
+    });
+  </script>
+</body>
+</html>

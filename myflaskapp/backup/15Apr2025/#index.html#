@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload Example</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        input[type="file"], input[type="submit"] {
+            padding: 10px;
+            margin: 10px;
+            font-size: 1em;
+        }
+
+        img {
+            max-width: 500px;
+            max-height: 500px;
+            margin-top: 20px;
+        }
+
+        #dimensions {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload an Image</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="file" accept="image/*">
+        <input type="submit" value="Upload">
+    </form>
+    <p id="output"></p>
+    <img id="uploadedImage" src="#" alt="Uploaded Image" style="display: none;">
+    <p id="dimensions"></p>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function (event) {
+            event.preventDefault(); // Prevent form from submitting
+            var formData = new FormData();
+            var fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length > 0) {
+                formData.append('file', fileInput.files[0]);
+            } else {
+                document.getElementById('output').innerText = 'Error: No file selected';
+                return;
+            }
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('output').innerText = 'Error: ' + data.error;
+                    } else {
+                        document.getElementById('output').innerText = 'Image uploaded successfully!';
+                        var uploadedImage = document.getElementById('uploadedImage');
+        uploadedImage.src = data.url;
+	qff
+                        uploadedImage.style.display = 'block';
+                        document.getElementById('dimensions').innerText = 'Width: ' + data.width + ', Height: ' + data.height + ', Prediction: ' + data.predict;
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        });
+    </script>
+</body>
+</html>
