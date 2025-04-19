@@ -2,4 +2,9 @@
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
-/ASL_project.sln
+ASL_project.sln
+myflaskapp/outputs
+myflaskapp/backup
+myflaskapp/__pycache__
+myflaskapp/.venv
+myflaskapp/venv
