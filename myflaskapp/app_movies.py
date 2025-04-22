@@ -52,7 +52,6 @@ def profile_function(func):
 @app.route('/upload', methods=['POST'])
 #@profile_function  # Applying the profiler
 def upload():
-    print("✅ Upload request received", flush=True)
 
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
@@ -70,11 +69,9 @@ def upload():
         # Save uploaded file
         try:
             file.save(input_path)
-            print(f"✅ File saved to: {input_path}")
 
             # Process video and classify
             predicted_sign = generate_joints(input_path, output_path, PROCESSED_FOLDER)
-            print(f"✅ Processed video saved to: {output_path}")
 
             return jsonify({
                 'url': f'/processed_videos/{output_filename}',
