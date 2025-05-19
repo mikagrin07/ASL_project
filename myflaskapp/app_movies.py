@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, send_file, render_template
+from flask import Flask, request, jsonify, send_file
 import os
 import cProfile
 import pstats
@@ -27,8 +27,8 @@ def allowed_file(filename):
 def root():
     return app.send_static_file('index_mp4.html')
 
-
-def profile_function(func):
+'''
+def profile_function(func):#######################################################################################
     """Decorator to profile a function using cProfile."""
     def wrapper(*args, **kwargs):
         profiler = cProfile.Profile()
@@ -47,11 +47,13 @@ def profile_function(func):
 
         return result
 
-    return wrapper
+    return wrapper'''###############################################################################
 
 @app.route('/upload', methods=['POST'])
 #@profile_function  # Applying the profiler
 def upload():
+    mode = request.form.get('mode', 'single_word')######################################################################
+    print("Selected mode:", mode)
 
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
@@ -69,13 +71,15 @@ def upload():
         # Save uploaded file
         try:
             file.save(input_path)
-
+            result = generate_joints(input_path, output_path, PROCESSED_FOLDER, mode)
             # Process video and classify
-            predicted_sign = generate_joints(input_path, output_path, PROCESSED_FOLDER)
+            #predicted_sign = generate_joints(input_path, output_path, PROCESSED_FOLDER)################################################################
 
             return jsonify({
                 'url': f'/processed_videos/{output_filename}',
-                'predicted_sign': predicted_sign
+                #'predicted_sign': predicted_sign#################################################################
+                'predicted_sentence': result.get("predicted_sentence"),
+                'predicted_sign': result.get("predicted_sign")
             })
 
         except Exception as e:
@@ -92,5 +96,5 @@ def processed_video(filename):
         return jsonify({'error': 'Video file not found'}), 404
 
 if __name__ == '__main__':
-    print(sys.executable)
+    #print(sys.executable)###################################################################
     app.run(debug=True)

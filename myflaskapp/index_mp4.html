@@ -5,13 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ASL Prediction</title>
 
-  <!-- External CSS -->
   <link rel="stylesheet" href="styles.css">
-
-  <!-- Video.js CSS -->
   <link href="https://unpkg.com/video.js/dist/video-js.css" rel="stylesheet">
-
-  <!-- Custom Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@300&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -20,17 +15,20 @@
     <span class="author">Mika Grinberg</span>
   </div>
 
-  <h1 style="font-family: 'Playfair Display', serif; font-size: 2em; color: #b36b6b;">Upload a Video for ASL Interpretation</h1>
-  <p style="font-family: 'Poppins', sans-serif; color: #555; font-size: 1em; margin: 10px auto; max-width: 600px; text-align: center;">
-        Use the form below to upload a short video of a sign in American Sign Language. Our model will analyze the movement and predict the most likely meaning of the sign.
-  </p>
+  <h1>Upload a Video for ASL Interpretation</h1>
+  <p>Choose whether you're uploading a single word or full sentence video and press one of the buttons accordingly.</p>
 
+  <!-- Always visible file input -->
   <form id="uploadForm" enctype="multipart/form-data">
     <input type="file" id="fileInput" name="file" accept="video/mp4">
-    <input type="submit" value="Upload">
+    <div id="modeButtons">
+      <button class="mode-btn" type="button" id="uploadSingleWord">Upload Single Word</button>
+      <button class="mode-btn" type="button" id="uploadFullSentence">Upload Full Sentence</button>
+    </div>
   </form>
 
   <p id="output"></p>
+  <p id="modeTag" style="font-weight: bold; color: #8ea87c;"></p>
 
   <h2 id="uploadedVideoTitle">Uploaded Video:</h2>
   <div class="video-container">
@@ -43,59 +41,28 @@
   <p id="prediction"></p>
   <div class="bottom-bar">Looking for examples?</div>
 
-  <!-- Four Example Videos -->
   <div class="four-squares">
-    <div class="square">
-      <p class="video-title"> Book</p>
-      <video controls>
-        <source src="/uploads/07075_book_display.mp4" type="video/mp4">
-        Your browser does not support the video tag.
-      </video>
-    </div>
-
-    <div class="square">
-      <p class="video-title"> Computer</p>
-      <video controls>
-        <source src="/uploads/12331_computer_display.mp4" type="video/mp4">
-        Your browser does not support the video tag.
-      </video>
-    </div>
-
-    <div class="square">
-      <p class="video-title"> Drink</p>
-      <video controls>
-        <source src="/uploads/17730_drink_display.mp4" type="video/mp4">
-        Your browser does not support the video tag.
-      </video>
-    </div>
-
-    <div class="square">
-      <p class="video-title"> Science</p>
-      <video controls>
-        <source src="/uploads/49634_science.mp4" type="video/mp4">
-        Your browser does not support the video tag.
-      </video>
-    </div>
+    <div class="square"><p class="video-title">Book</p><video controls><source src="/uploads/07075_book_display.mp4" type="video/mp4"></video></div>
+    <div class="square"><p class="video-title">Computer</p><video controls><source src="/uploads/12331_computer_display.mp4" type="video/mp4"></video></div>
+    <div class="square"><p class="video-title">Drink</p><video controls><source src="/uploads/17730_drink_display.mp4" type="video/mp4"></video></div>
+    <div class="square"><p class="video-title">Science</p><video controls><source src="/uploads/49634_science.mp4" type="video/mp4"></video></div>
   </div>
 
-  <!-- Video.js JavaScript -->
   <script src="https://unpkg.com/video.js/dist/video.js"></script>
 
-  <!-- Upload Logic -->
   <script>
-    document.getElementById('uploadForm').addEventListener('submit', function (event) {
-      event.preventDefault();
-
-      const formData = new FormData();
+    function uploadVideo(mode) {
       const fileInput = document.getElementById('fileInput');
       const uploadedVideo = document.getElementById('uploadedVideo');
       const uploadedVideoSource = document.getElementById('uploadedVideoSource');
       const outputMessage = document.getElementById('output');
       const predictionText = document.getElementById('prediction');
       const uploadedVideoContainer = uploadedVideo.parentElement;
+      const modeTag = document.getElementById('modeTag');
 
       outputMessage.innerText = "";
       predictionText.innerText = "";
+      modeTag.innerText = "";
       uploadedVideoContainer.style.display = "none";
 
       if (fileInput.files.length === 0) {
@@ -103,12 +70,15 @@
         return;
       }
 
-      const fileURL = URL.createObjectURL(fileInput.files[0]);
+      const file = fileInput.files[0];
+      const fileURL = URL.createObjectURL(file);
       uploadedVideoSource.src = fileURL;
       uploadedVideo.load();
       uploadedVideoContainer.style.display = "block";
 
-      formData.append('file', fileInput.files[0]);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('mode', mode);
 
       fetch('/upload', {
         method: 'POST',
@@ -116,18 +86,29 @@
       })
       .then(response => response.json())
       .then(data => {
-        if (data.error) {
-          outputMessage.innerText = 'Error: ' + data.error;
-        } else {
-          outputMessage.innerText = 'Video processed successfully!';
-          predictionText.innerText = "Predicted Sign: " + data.predicted_sign;
-        }
+          if (data.error) {
+            outputMessage.innerText = 'Error: ' + data.error;
+          } else {
+            outputMessage.innerText = 'Video processed successfully!';
+            
+            if (data.predicted_sentence) {
+              predictionText.innerText = "Predicted Sentence: " + data.predicted_sentence;
+            } else if (data.predicted_sign) {
+              predictionText.innerText = "Predicted Sign: " + data.predicted_sign;
+            } else {
+              predictionText.innerText = "No prediction returned.";
+            }
+          }
+
       })
       .catch(error => {
         console.error('Upload failed:', error);
         outputMessage.innerText = 'An error occurred while uploading.';
       });
-    });
+    }
+
+    document.getElementById('uploadSingleWord').addEventListener('click', () => uploadVideo("single_word"));
+    document.getElementById('uploadFullSentence').addEventListener('click', () => uploadVideo("full_sentence"));
   </script>
 </body>
 </html>

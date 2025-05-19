@@ -7,7 +7,8 @@ import urllib.request
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 import threading
-
+#from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.editor import VideoFileClip
 
 # Load MediaPipe Hand and Pose Landmarker
 mp_hands = mp.solutions.hands
@@ -15,7 +16,7 @@ mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 
-MODEL_PATH = "/home/mikagrin/ASL_project/myflaskapp/weights/asl_lstm_single_layer.h5"
+MODEL_PATH = "/home/mikagrin/ASL_project1/myflaskapp/weights/ASL_final_model.h5"
 
 # Define constants
 LEFT_HAND_LANDMARKS = 21
@@ -25,12 +26,12 @@ FEATURES_PER_FRAME = (LEFT_HAND_LANDMARKS + RIGHT_HAND_LANDMARKS + POSE_LANDMARK
 MAX_FRAMES = 15  # Number of frames used for classification
 
 # Load label encoder
-LABELS = ['book', 'computer_bk', 'drink', 'i', 'science', 'study']  # Same classes as in training
+LABELS = ['book', 'computer', 'drink', 'i', 'other', 'read', 'science', 'study', 'water']  # Same classes as in training
 
 # === הורדת מודלים ===
 #BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-BASE_DIR = "/home/mikagrin/ASL_project/myflaskapp/"
+BASE_DIR = "/home/mikagrin/ASL_project1/myflaskapp/"
 
 POSE_MODEL_PATH = os.path.join(BASE_DIR, "pose_landmarker.task")
 
@@ -148,7 +149,7 @@ def extract_landmark_matrix_full_video(video_path, output_path=None):
 #   classify_video
 #####################################################################################################
 
-def classify_video(video_path, outputs_dir):
+def classify_single_word(video_path, outputs_dir):
     """
     Classifies a video based on extracted landmarks using the trained RNN model.
     """
@@ -163,29 +164,173 @@ def classify_video(video_path, outputs_dir):
 
     sequence = np.expand_dims(sequence, axis=0)  # Add batch dimension
 
-    print(f"Start predict ....")
+    print(f"!!!@@@ Start predict ....")
     predictions = model.predict(sequence)
     predicted_label = LABELS[np.argmax(predictions)]
 
     return predicted_label
+
+#####################################################################################################
+#   split_video_chunks
+#####################################################################################################
+
+def split_video_chunks(video_path, chunk_duration):
+    video = VideoFileClip(video_path)
+    print("--------------------------------- video ----------------------------")
+    duration = video.duration
+    print(f"--------------------------------- duration: {duration} ----------------------------")
+    chunks = []
+
+    start = 0.0
+    idx = 0
+    while start < duration:
+        end = min(start + chunk_duration, duration)
+        #output_path = f"/content/chunk_{idx}_{int(chunk_duration * 100)}.mp4"
+        output_path = f"chunk_{idx}_{int(chunk_duration * 100)}.mp4"
+        video.subclip(start, end).write_videofile(output_path, codec="libx264", audio=False, verbose=False, logger=None)
+        chunks.append(output_path)
+        start += chunk_duration
+        idx += 1
+
+    return chunks
+
+#####################################################################################################
+#   predict_chunks
+#####################################################################################################
+
+def predict_chunks(chunks, model, LABELS, run_label=""):
+    predictions = []
+
+    for i, chunk in enumerate(chunks):
+        matrix = extract_landmark_matrix_full_video(chunk)
+        matrix = np.expand_dims(matrix, axis=0)
+
+        pred = model.predict(matrix, verbose=0)
+        label = np.argmax(pred, axis=1)[0]
+        confidence = float(np.max(pred))
+        word = LABELS[label]
+
+        print(f"{run_label} matrix {i+1}: '{word}' (confidence: {confidence:.2%})")
+        predictions.append(word)
+
+    return predictions
+
+
+#####################################################################################################
+#   merge_predictions_with_time_v2
+#####################################################################################################
+
+def merge_predictions_with_time_v2(preds_07, preds_09, chunk_duration_07=0.7, chunk_duration_09=0.9, max_time_diff=1):
+    final_sentence = []
+    max_len = max(len(preds_07), len(preds_09))
+
+    for i in range(max_len):
+        word_07 = preds_07[i] if i < len(preds_07) else None
+        word_09 = preds_09[i] if i < len(preds_09) else None
+
+        # Remove 'other' as it doesn't contribute meaningfully
+        if word_07 == 'other': word_07 = None
+        if word_09 == 'other': word_09 = None
+
+        chosen = None
+
+        # If both words are the same and not None, keep it
+        if word_07 and word_07 == word_09:
+            chosen = word_07
+        # If both exist but are different, prefer the one closest in time
+        elif word_07 and word_09:
+            # Check the time difference between the two words
+            time_07 = i * chunk_duration_07
+            time_09 = i * chunk_duration_09
+            time_diff = abs(time_07 - time_09)
+
+            if time_diff <= max_time_diff:
+                chosen = word_09
+            else:
+                chosen = word_07  # Default to 0.7s prediction if time difference is too large
+        # If only one word exists, take it only if it is surrounded by words from the other prediction
+        elif word_07:
+            # Check if this word has a corresponding match before or after in the 0.9s prediction
+            idx_in_09 = None
+            for j in range(i, len(preds_09)):
+                if preds_09[j] == word_07:
+                    idx_in_09 = j
+                    break
+
+            if idx_in_09 is not None:
+                time_09 = idx_in_09 * chunk_duration_09
+                time_07 = i * chunk_duration_07
+                time_diff = abs(time_07 - time_09)
+
+                # If it is too far apart, discard the word
+                if time_diff <= max_time_diff:
+                    chosen = word_07
+
+        elif word_09:
+            # Check if this word has a corresponding match before or after in the 0.7s prediction
+            idx_in_07 = None
+            for j in range(i, len(preds_07)):
+                if preds_07[j] == word_09:
+                    idx_in_07 = j
+                    break
+
+            if idx_in_07 is not None:
+                time_07 = idx_in_07 * chunk_duration_07
+                time_09 = i * chunk_duration_09
+                time_diff = abs(time_07 - time_09)
+
+                # If it is too far apart, discard the word
+                if time_diff <= max_time_diff:
+                    chosen = word_09
+
+        # Avoid consecutive duplicates in final sentence
+        if chosen and (len(final_sentence) == 0 or final_sentence[-1] != chosen):
+            final_sentence.append(chosen)
+
+    return final_sentence
+
+#####################################################################################################
+#   dual_run_prediction_with_time_v2
+#####################################################################################################
+
+def dual_run_prediction_with_time_v2(video_path, LABELS):
+
+    model = tf.keras.models.load_model(MODEL_PATH)
+
+    chunks_07 = split_video_chunks(video_path, chunk_duration=0.7)
+    preds_07 = predict_chunks(chunks_07, model, LABELS, run_label="0.7s")
+
+    chunks_09 = split_video_chunks(video_path, chunk_duration=0.9)
+    preds_09 = predict_chunks(chunks_09, model, LABELS, run_label="0.9s")
+
+    final_sentence = merge_predictions_with_time_v2(preds_07, preds_09)
+
+    print("\n📝 Full sentence (0.7s):", " ".join(preds_07))
+    print("📝 Full sentence (0.9s):", " ".join(preds_09))
+    print("✅ Final combined sentence:", " ".join([w for w in final_sentence if w]))
+    return final_sentence
 
 
 #####################################################################################################
 #   generate_joints
 #####################################################################################################
 
-def generate_joints(input_video_path, output_video_path, outputs_dir):
-    """
-    This function only classifies the input video by extracting landmarks
-    and predicting the sign using the trained model.
-    It does not modify or write any new video files.
-    """
-
+def generate_joints(input_video_path, output_video_path, outputs_dir, mode="single_word"):
     try:
-        # פשוט מעבירים את הווידאו לפונקציית הסיווג
-        predicted_sign = classify_video(input_video_path, outputs_dir)
-        return predicted_sign
-
+        print("--------------------------------------------------------------------------------------------------------")
+        if mode == "full_sentence":
+            prediction = dual_run_prediction_with_time_v2(input_video_path, LABELS)
+            return {
+                "predicted_sentence": " ".join(prediction)
+            }
+        else:
+            prediction = classify_single_word(input_video_path, outputs_dir)
+            return {
+                "predicted_sign": prediction,
+            }
     except Exception as e:
         print(f"❌ [generate_joints] Exception: {str(e)}", flush=True)
-        return "Error: failed to classify video"
+        return {
+            "predicted_sign": "Error: failed to classify video",
+            "mode_tag": "error"
+        }
